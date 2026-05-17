@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect Claude Code CLI</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: #F8F9FC;
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    .container {
+      width: 100%;
+      max-width: 460px;
+      text-align: center;
+    }
+    .logo {
+      width: 60px;
+      height: 60px;
+      margin: 0 auto 18px;
+      display: block;
+    }
+    .logo svg {
+      width: 60px;
+      height: 60px;
+      border-radius: 14px;
+      filter: drop-shadow(0 2px 8px rgba(48, 127, 255, 0.25));
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      margin: 0 0 14px;
+      color: #6B7280;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    /* Countdown timer */
+    .countdown {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #6B7280;
+      background: #F3F4F6;
+      border: 1px solid #E5E7EB;
+      border-radius: 100px;
+      padding: 5px 12px;
+      margin-bottom: 18px;
+      transition: color 0.3s, background 0.3s, border-color 0.3s;
+    }
+    .countdown.warning {
+      color: #B45309;
+      background: #FFFBEB;
+      border-color: #FCD34D;
+    }
+    .countdown.expired {
+      color: #B91C1C;
+      background: #FEF2F2;
+      border-color: #FECACA;
+    }
+    .countdown-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #9CA3AF;
+      animation: pulse-dot 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    .countdown.warning .countdown-dot { background: #F59E0B; }
+    .countdown.expired .countdown-dot { background: #EF4444; animation: none; }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+    .segment {
+      display: flex;
+      background: #EDEFF5;
+      border-radius: 100px;
+      padding: 3px;
+      gap: 3px;
+      margin-bottom: 16px;
+    }
+    .seg-btn {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: #6B7280;
+      border-radius: 100px;
+      padding: 10px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .seg-btn.active {
+      color: #111827;
+      background: #FFFFFF;
+    }
+    .tab {
+      display: none;
+      text-align: left;
+      background: #FFFFFF;
+      border: 1px solid #E5E7EB;
+      border-radius: 18px;
+      padding: 15px 16px;
+    }
+    .tab.active { display: block; }
+    .step {
+      margin-bottom: 14px;
+      color: #374151;
+      font-size: 14px;
+    }
+    .step:last-child { margin-bottom: 0; }
+    .step-title {
+      font-weight: 600;
+      margin-bottom: 7px;
+    }
+    .code {
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: #F3F4F6;
+      border: 1px solid #E5E7EB;
+      border-radius: 14px;
+      padding: 10px 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New", monospace;
+      font-size: 12px;
+      color: #111827;
+    }
+    .cmd { color: #334155; }
+    .cmd .verb { color: #111827; font-weight: 600; }
+    .cmd .pkg { color: #2563EB; }
+    .cmd .flag { color: #7C3AED; }
+    .cmd .arg { color: #0EA5E9; }
+    .copy-btn {
+      border: none;
+      background: transparent;
+      color: #6B7280;
+      cursor: pointer;
+      font-size: 13px;
+      padding: 0;
+      flex-shrink: 0;
+      font-family: inherit;
+    }
+    .copy-btn:hover { color: #111827; }
+    .connect-btn {
+      margin-top: 16px;
+      display: block;
+      width: 100%;
+      border: none;
+      text-decoration: none;
+      text-align: center;
+      background: #000000;
+      color: #FFFFFF;
+      font-weight: 600;
+      font-size: 16px;
+      padding: 14px 16px;
+      border-radius: 100px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      font-family: inherit;
+    }
+    .connect-btn:hover { opacity: 0.85; }
+    /* Connected pill */
+    .connected-pill {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #15803D;
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: 100px;
+      padding: 5px 12px;
+      margin-top: 4px;
+      margin-bottom: 18px;
+    }
+    .connected-pill.visible { display: inline-flex; }
+    .connected-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #16A34A;
+      flex-shrink: 0;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    .note {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #6B7280;
+      min-height: 16px;
+    }
+    .note.error { color: #B91C1C; }
+    .meta {
+      margin-top: 8px;
+      color: #6B7280;
+      font-size: 11px;
+      min-height: 14px;
+    }
+    .warning-box {
+      margin-top: 12px;
+      text-align: left;
+      background: transparent;
+      border: 1px solid #D1D5DB;
+      border-radius: 14px;
+      padding: 10px 12px;
+      color: #4B5563;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .warning-box strong {
+      color: #374151;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- App Icon -->
+    <div class="logo">
+      <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="512" cy="512" r="430" fill="#307FFF"/>
+        <path d="M527.926 655.333H719.037" stroke="white" stroke-width="74.321" stroke-linecap="round"/>
+        <path d="M315.58 358.049L379.284 506.691L315.58 655.333" stroke="white" stroke-width="74.321" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <h1>Connect Claude Code</h1>
+    <p class="subtitle">Bridge your mobile app with Claude Code CLI on your computer.</p>
+
+    <!-- Countdown timer — shown only when token is present -->
+    <div class="countdown" id="countdown" style="display:none;">
+      <span class="countdown-dot" id="countdown-dot"></span>
+      <span id="countdown-text">Link valid for 15:00</span>
+    </div>
+
+    <!-- Connected pill — shown after auto-connect succeeds -->
+    <div class="connected-pill" id="connected-pill">
+      <span class="connected-dot"></span>
+      <span>Connected</span>
+    </div>
+
+    <div class="segment">
+      <button class="seg-btn active" id="tab-unix-btn" onclick="switchTab('unix')">macOS / Linux</button>
+      <button class="seg-btn" id="tab-win-btn" onclick="switchTab('windows')">Windows</button>
+    </div>
+
+    <div class="tab active" id="tab-unix">
+      <div class="step">
+        <div class="step-title">1. Install Claude Code CLI</div>
+        <div class="code"><span class="cmd"><span class="verb">curl</span> <span class="flag">-fsSL</span> <span class="arg">https://claude.ai/install.sh</span> | <span class="verb">bash</span></span><button class="copy-btn" onclick="copyText('curl -fsSL https://claude.ai/install.sh | bash', this)">Copy</button></div>
+        <div style="font-size:12px;color:#6B7280;margin-top:6px;">Skip if already installed. Then run <code style="font-size:11px;background:#F3F4F6;padding:2px 5px;border-radius:4px;">claude auth login</code></div>
+      </div>
+      <div class="step">
+        <div class="step-title">2. Go to your project folder</div>
+        <div class="code"><span class="cmd"><span class="verb">cd</span> <span class="arg">/path/to/your-project</span></span><button class="copy-btn" onclick="copyText('cd /path/to/your-project', this)">Copy</button></div>
+      </div>
+      <div class="step">
+        <div class="step-title">3. Run the bridge</div>
+        <div class="code"><span class="cmd"><span class="verb">npx</span> <span class="pkg">@uladluch/claudecodemobile-bridge@latest</span></span><button class="copy-btn" onclick="copyText('npx @uladluch/claudecodemobile-bridge@latest', this)">Copy</button></div>
+        <div style="font-size:12px;color:#6B7280;margin-top:6px;">Node.js required. Claude Code CLI must be installed and authenticated.</div>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-windows">
+      <div class="step">
+        <div class="step-title">1. Install Claude Code CLI</div>
+        <div style="font-size:13px;color:#4B5563;margin-top:4px;">Open PowerShell and run:</div>
+        <div class="code"><span class="cmd"><span class="verb">irm</span> <span class="arg">https://claude.ai/install.ps1</span> | <span class="verb">iex</span></span><button class="copy-btn" onclick="copyText('irm https://claude.ai/install.ps1 | iex', this)">Copy</button></div>
+      </div>
+      <div class="step">
+        <div class="step-title">2. Go to your project folder</div>
+        <div class="code"><span class="cmd"><span class="verb">cd</span> <span class="arg">C:\path\to\your-project</span></span><button class="copy-btn" onclick="copyText('cd C:\\path\\to\\your-project', this)">Copy</button></div>
+      </div>
+      <div class="step">
+        <div class="step-title">3. Run the bridge</div>
+        <div class="code"><span class="cmd"><span class="verb">npx</span> <span class="pkg">@uladluch/claudecodemobile-bridge@latest</span></span><button class="copy-btn" onclick="copyText('npx @uladluch/claudecodemobile-bridge@latest', this)">Copy</button></div>
+      </div>
+    </div>
+
+    <!-- Manual fallback connect button — shown after 15s if auto-connect hasn't fired -->
+    <div id="manual-connect-wrap" style="display:none;">
+      <a id="connect-link" class="connect-btn" href="#">Connect manually</a>
+    </div>
+
+    <div class="warning-box">
+      <strong>That's it!</strong> The bridge connects your phone to Claude Code CLI running on your computer.
+      You need <a href="https://nodejs.org" target="_blank" style="color:#2563EB;">Node.js</a> and
+      <a href="https://claude.ai/code" target="_blank" style="color:#2563EB;">Claude Code CLI</a> installed.
+    </div>
+    <div class="note" id="note"></div>
+    <div class="meta" id="meta"></div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const pairId = params.get("pair");
+    const token = params.get("token");
+    const expiresParam = parseInt(params.get("expires") || "0", 10);
+    const expiresAt = expiresParam > 0 ? expiresParam * 1000 : Date.now() + 15 * 60 * 1000;
+
+    const connectLink = document.getElementById("connect-link");
+    const connectedPill = document.getElementById("connected-pill");
+    const manualConnectWrap = document.getElementById("manual-connect-wrap");
+    const note = document.getElementById("note");
+    const meta = document.getElementById("meta");
+    const countdownEl = document.getElementById("countdown");
+    const countdownText = document.getElementById("countdown-text");
+
+    let autoConnectTimer = null;
+    let autoConnectAttempts = 0;
+    let autoConnected = false;
+    let countdownInterval = null;
+
+    // ── Countdown timer ──────────────────────────────────────────────────────
+    function startCountdown() {
+      countdownEl.style.display = "inline-flex";
+      const tick = () => {
+        const msLeft = expiresAt - Date.now();
+        if (msLeft <= 0) {
+          countdownEl.className = "countdown expired";
+          countdownText.textContent = "Link expired — get a new one from the iOS app";
+          clearInterval(countdownInterval);
+          if (autoConnectTimer) { clearInterval(autoConnectTimer); autoConnectTimer = null; }
+          connectLink.style.opacity = "0.4";
+          connectLink.style.pointerEvents = "none";
+          note.className = "note error";
+          note.textContent = "This link has expired. Tap Connect again in the iOS app to get a fresh link.";
+          return;
+        }
+        const totalSec = Math.ceil(msLeft / 1000);
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        countdownText.textContent = "Link valid for " + m + ":" + s.toString().padStart(2, "0");
+        countdownEl.className = "countdown" + (msLeft < 2 * 60 * 1000 ? " warning" : "");
+      };
+      tick();
+      countdownInterval = setInterval(tick, 1000);
+    }
+
+    // ── Success handler ──────────────────────────────────────────────────────
+    function onConnected() {
+      autoConnected = true;
+      clearInterval(autoConnectTimer);
+      clearInterval(countdownInterval);
+      manualConnectWrap.style.display = "none";
+      countdownEl.style.display = "none";
+      connectedPill.classList.add("visible");
+      note.textContent = "";
+    }
+
+    // ── Main pairing logic ───────────────────────────────────────────────────
+    if (!pairId || !token) {
+      manualConnectWrap.style.display = "block";
+      connectLink.style.opacity = "0.5";
+      connectLink.style.pointerEvents = "none";
+      note.textContent = "Invalid link. Open this page from the iOS app.";
+    } else {
+      const callback = "http://127.0.0.1:38476/callback?pair=" + encodeURIComponent(pairId) + "&token=" + encodeURIComponent(token);
+      connectLink.href = callback;
+
+      // Show fallback Connect button after 15s — only if not already connected
+      setTimeout(() => { if (!autoConnected) manualConnectWrap.style.display = "block"; }, 15000);
+
+      startCountdown();
+
+      // Handle manual "Connect" tap
+      connectLink.addEventListener("click", async (e) => {
+        e.preventDefault();
+        try {
+          const resp = await fetch(callback, { method: "GET", cache: "no-store" });
+          if (resp.ok) { onConnected(); return; }
+        } catch {}
+        window.location.href = callback;
+      });
+
+      // Auto-connect: poll the local bridge every 1.5s
+      const tryAutoConnect = async () => {
+        if (autoConnected) return;
+        autoConnectAttempts += 1;
+        if (autoConnectAttempts > 400) {
+          clearInterval(autoConnectTimer);
+          manualConnectWrap.style.display = "block";
+          note.textContent = "Auto-connect timed out. Keep bridge running and tap Connect manually.";
+          return;
+        }
+        try {
+          const resp = await fetch(callback, { method: "GET", cache: "no-store" });
+          if (!resp.ok) return;
+          onConnected();
+        } catch {
+          // Bridge not listening yet — keep polling quietly.
+        }
+      };
+
+      // Start polling right away
+      setTimeout(tryAutoConnect, 800);
+      autoConnectTimer = setInterval(tryAutoConnect, 1500);
+    }
+
+    if (pairId) {
+      meta.textContent = "Pair: " + pairId.slice(0, 8) + "…";
+    }
+
+    function switchTab(tab) {
+      const isUnix = tab === "unix";
+      document.getElementById("tab-unix").classList.toggle("active", isUnix);
+      document.getElementById("tab-windows").classList.toggle("active", !isUnix);
+      document.getElementById("tab-unix-btn").classList.toggle("active", isUnix);
+      document.getElementById("tab-win-btn").classList.toggle("active", !isUnix);
+    }
+
+    function copyText(value, btn) {
+      navigator.clipboard.writeText(value).then(() => {
+        const old = btn.textContent;
+        btn.textContent = "Copied";
+        setTimeout(() => { btn.textContent = old; }, 1200);
+      });
+    }
+  </script>
+</body>
+</html>

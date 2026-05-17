@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+*.swp
+*.lock
+xcuserdata/
+
+# Xcode
+build/
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Node
+node_modules/
+dist/
+
+# Supabase
+supabase/.env
+
+# IDE
+.idea/
+.vscode/
+
+# Misc
+*.log

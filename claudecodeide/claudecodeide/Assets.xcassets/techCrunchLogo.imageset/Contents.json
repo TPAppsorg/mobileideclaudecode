@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "techCrunchLogo.pdf",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

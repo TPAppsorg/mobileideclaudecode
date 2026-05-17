@@ -1,0 +1,100 @@
+{
+  "identifier" : "CB3BAE8F-B6B1-4C66-8F05-1A3F7A32C0D3",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "0000000001",
+    "_developerTeamID" : "TU24B4ACZ7",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 768268722.16704106,
+    "_storeKitErrors" : [
+      {
+        "current" : {
+          "index" : 2,
+          "type" : "generic"
+        },
+        "enabled" : false,
+        "name" : "Load Products"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21654837",
+      "localizations" : [
+        {
+          "description" : "",
+          "displayName" : "Claude Code Mobile Premium",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "Claude Code Mobile Premium",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "11.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6745892301",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited prompts to Claude Code CLI from your iPhone.",
+              "displayName" : "Monthly Access",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "uladluch.ClaudeCodeMobile.premium.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Premium Monthly",
+          "subscriptionGroupID" : "21654837",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "114.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6745892302",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited prompts to Claude Code CLI. Save 20% with annual plan.",
+              "displayName" : "Yearly Access",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "uladluch.ClaudeCodeMobile.premium.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Premium Yearly",
+          "subscriptionGroupID" : "21654837",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

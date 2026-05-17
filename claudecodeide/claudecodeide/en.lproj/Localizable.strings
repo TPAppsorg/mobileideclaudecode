@@ -1,0 +1,3 @@
+"connection.stub.title.not_connected" = "Not Connected";
+"connection.stub.subtitle.pair_devices" = "Send a connection link to your desktop to pair devices and control Claude Code CLI.";
+"connection.stub.button.share_link" = "Share Link";
