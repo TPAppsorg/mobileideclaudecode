@@ -115,6 +115,8 @@ async function processMessage(msg: MessageRow): Promise<void> {
     } else {
       // Insert agent reply
       await bridge.insertAgentReply(msg.id, res.output, msg.model);
+      // Mark user message as completed
+      await bridge.updateMessageStatus(msg.id, "completed");
       console.log(`  ✅ Reply sent (${res.output.length} chars)`);
     }
 
@@ -181,8 +183,12 @@ async function main(): Promise<void> {
 
   // 3. Start pairing server
   const pairingServer = startPairingServer(config.port, async ({ pairId, token }) => {
-    // Skip if already paired
-    if (bridge.pairId) return;
+    // Allow re-pairing: disconnect old pair and accept the new one
+    if (bridge.pairId) {
+      console.log("  🔄 New device connecting — switching pair...");
+      await bridge.disconnect();
+      isFirstMessage = true;
+    }
 
     let resolvedPairId = pairId;
 

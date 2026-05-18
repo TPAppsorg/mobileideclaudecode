@@ -29,7 +29,7 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     
     let onboardingItems = [
-        OnboardingItem(title: "Control Claude Code from Your iPhone", subtitle: "Send prompts to Claude Code CLI running on your computer — from anywhere."),
+        OnboardingItem(title: "Control Claude Code from iPhone", subtitle: "Send prompts to Claude Code CLI running on your computer — from anywhere."),
         OnboardingItem(title: "Agentic Coding on the Go", subtitle: "Claude writes, edits, and runs code in your project while you're away from the desk."),
         OnboardingItem(title: "Learn to Prompt Efficiently", subtitle: "Explore the Prompt Book — curated prompts for code review, refactoring, and more."),
         OnboardingItem(title: "Unlimited Prompts", subtitle: "Get unlimited access to the Mobile IDE for Claude Code AI and unlock agentic coding from anywhere.")
