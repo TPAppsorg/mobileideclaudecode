@@ -1,7 +1,7 @@
 import { ChildProcess, execSync, spawn } from "child_process";
-import { accessSync, constants, existsSync, realpathSync } from "fs";
+import { accessSync, constants, existsSync, readFileSync, realpathSync } from "fs";
 import { homedir } from "os";
-import { join } from "path";
+import { dirname, join } from "path";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -59,45 +59,209 @@ type StreamJsonEvent = {
 
 // ─── CLI discovery ───────────────────────────────────────────────────
 
-function isUsableExecutable(p: string): boolean {
-  if (!p || !existsSync(p)) return false;
-  try {
-    accessSync(p, constants.X_OK);
-    return true;
-  } catch {
-    return false;
+function isWindows(platform: NodeJS.Platform = process.platform): boolean {
+  return platform === "win32";
+}
+
+function normalizeExecutablePath(p: string): string {
+  const trimmed = p.trim();
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1);
   }
+  return trimmed;
 }
 
 function maybeRealpath(p: string): string {
   try { return realpathSync(p); } catch { return p; }
 }
 
-export function findClaudeCLI(): string | null {
-  // 1. Env override
-  const fromEnv = process.env.CLAUDE_CLI_PATH;
-  if (fromEnv && isUsableExecutable(fromEnv)) return maybeRealpath(fromEnv);
-
-  // 2. which claude
+function isUsableExecutablePath(p: string, platform: NodeJS.Platform = process.platform): boolean {
+  const cleaned = normalizeExecutablePath(p);
+  if (!cleaned || !existsSync(cleaned)) return false;
+  if (isWindows(platform)) return true;
   try {
-    const fromPath = execSync("which claude", { encoding: "utf-8" }).trim();
-    if (fromPath && isUsableExecutable(fromPath)) return maybeRealpath(fromPath);
+    accessSync(cleaned, constants.X_OK);
+    return true;
   } catch {
-    // ignore
+    return false;
+  }
+}
+
+function firstUsableCandidate(paths: string[], platform: NodeJS.Platform = process.platform): string | null {
+  for (const raw of paths) {
+    const p = normalizeExecutablePath(raw);
+    if (isUsableExecutablePath(p, platform)) return maybeRealpath(p);
+  }
+  return null;
+}
+
+function preferWindowsClaudeCandidate(paths: string[]): string | null {
+  const cleaned = paths.map(normalizeExecutablePath).filter(Boolean);
+  if (cleaned.length === 0) return null;
+  const rank = (p: string): number => {
+    const lower = p.toLowerCase();
+    if (lower.endsWith(".cmd")) return 0;
+    if (lower.endsWith(".exe")) return 1;
+    if (lower.endsWith(".bat")) return 2;
+    if (lower.endsWith(".ps1")) return 3;
+    return 4;
+  };
+  return cleaned.sort((a, b) => rank(a) - rank(b))[0] ?? null;
+}
+
+function windowsCLICandidatesFromEnv(binaryName: string): string[] {
+  const candidates: string[] = [];
+  const appData = process.env.APPDATA;
+  if (appData) {
+    candidates.push(join(appData, "npm", `${binaryName}.cmd`));
+    candidates.push(join(appData, "npm", `${binaryName}.exe`));
+    candidates.push(join(appData, "npm", `${binaryName}.bat`));
+    candidates.push(join(appData, "npm", `${binaryName}.ps1`));
+  }
+  const localAppData = process.env.LOCALAPPDATA;
+  if (localAppData) {
+    candidates.push(join(localAppData, "npm", `${binaryName}.cmd`));
+    candidates.push(join(localAppData, "npm", `${binaryName}.exe`));
+  }
+  return candidates;
+}
+
+export function findClaudeCLI(platform: NodeJS.Platform = process.platform): string | null {
+  const fromEnv = process.env.CLAUDE_CLI_PATH;
+  if (fromEnv) {
+    const normalized = normalizeExecutablePath(fromEnv);
+    if (isUsableExecutablePath(normalized, platform)) return maybeRealpath(normalized);
+    console.warn(`[bridge] CLAUDE_CLI_PATH is set but not executable/found: ${normalized}; falling back to PATH.`);
   }
 
-  // 3. Common locations
-  const candidates = [
-    join(homedir(), ".local", "bin", "claude"),
-    join(homedir(), ".claude", "bin", "claude"),
-    "/usr/local/bin/claude",
-    "/opt/homebrew/bin/claude",
-  ];
-  for (const p of candidates) {
-    if (isUsableExecutable(p)) return maybeRealpath(p);
+  const binariesToTry = ["claude", "claude-code"];
+
+  for (const bin of binariesToTry) {
+    if (isWindows(platform)) {
+      try {
+        const fromPath = execSync(`where ${bin}`, { encoding: "utf-8", shell: "cmd.exe" })
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        const preferred = preferWindowsClaudeCandidate(fromPath);
+        if (preferred && isUsableExecutablePath(preferred, platform)) return maybeRealpath(preferred);
+        const fallback = firstUsableCandidate(fromPath, platform);
+        if (fallback) return fallback;
+      } catch {
+        // ignore
+      }
+
+      for (const p of windowsCLICandidatesFromEnv(bin)) {
+        if (existsSync(p)) return maybeRealpath(p);
+      }
+    } else {
+      try {
+        const fromPath = execSync(`which -a ${bin}`, { encoding: "utf-8" })
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        const preferred = firstUsableCandidate(fromPath, platform);
+        if (preferred) return preferred;
+      } catch {
+        // ignore
+      }
+
+      const candidates = [
+        join(homedir(), ".local", "bin", bin),
+        join(homedir(), ".claude", "bin", bin),
+        `/usr/local/bin/${bin}`,
+        `/opt/homebrew/bin/${bin}`,
+      ];
+      for (const p of candidates) {
+        if (isUsableExecutablePath(p, platform)) return maybeRealpath(p);
+      }
+    }
   }
 
   return null;
+}
+
+// ─── Spawn Plan for Windows compatibility ────────────────────────────
+
+export interface ClaudeSpawnPlan {
+  command: string;
+  args: string[];
+  detached: boolean;
+  windowsVerbatimArguments?: boolean;
+}
+
+function commandLineToPassToCmdExe(file: string, args: string[]): string {
+  const quote = (raw: string): string => {
+    let s = String(raw);
+    s = s.replace(/\r?\n/g, " ");
+    s = s.replace(/([%^&|<>])/g, "^$1");
+    s = s.replace(/"/g, '^"');
+    return `"${s}"`;
+  };
+  return `"${[quote(file), ...args.map(quote)].join(" ")}"`;
+}
+
+export function resolveWindowsNpmJsEntry(cmdPath: string): string | null {
+  try {
+    const content = readFileSync(cmdPath, "utf-8");
+    const match = content.match(/"([^"\r\n]+\.js)"/i);
+    if (!match) return null;
+    const rawPath = match[1];
+    const dp0Dir = dirname(cmdPath);
+    const candidates = new Set<string>();
+    for (const sep of ["\\", "/"]) {
+      const expanded = rawPath
+        .replace(/%~dp0%/gi, dp0Dir + sep)
+        .replace(/%dp0%/gi, dp0Dir + sep);
+      candidates.add(expanded.replace(/\\{2,}/g, "\\").replace(/\/{2,}/g, "/"));
+    }
+    for (const raw of Array.from(candidates)) {
+      candidates.add(raw.replace(/\\/g, "/"));
+    }
+    for (const c of candidates) {
+      if (existsSync(c)) return c;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveClaudeSpawnPlan(
+  cliPath: string,
+  args: string[],
+  platform: NodeJS.Platform = process.platform,
+): ClaudeSpawnPlan {
+  const normalized = normalizeExecutablePath(cliPath);
+  if (!isWindows(platform)) {
+    return { command: normalized, args, detached: true };
+  }
+
+  const lower = normalized.toLowerCase();
+  if (lower.endsWith(".cmd") || lower.endsWith(".bat")) {
+    const jsEntry = resolveWindowsNpmJsEntry(normalized);
+    if (jsEntry) {
+      return {
+        command: process.execPath,
+        args: [jsEntry, ...args],
+        detached: false,
+      };
+    }
+    return {
+      command: "cmd.exe",
+      args: ["/d", "/s", "/c", commandLineToPassToCmdExe(normalized, args)],
+      detached: false,
+      windowsVerbatimArguments: true,
+    };
+  }
+  if (lower.endsWith(".ps1")) {
+    return {
+      command: "powershell.exe",
+      args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", normalized, ...args],
+      detached: false,
+    };
+  }
+  return { command: normalized, args, detached: false };
 }
 
 // ─── Build CLI args ──────────────────────────────────────────────────
@@ -205,14 +369,14 @@ export function runClaude(
 ): { process: ChildProcess; result: Promise<ClaudeResult> } {
   const args = buildClaudeArgs(prompt, options);
   const timeout = resolveClaudeTimeoutMs(options.timeout);
+  const spawnPlan = resolveClaudeSpawnPlan(cliPath, args);
 
-
-
-  const proc = spawn(cliPath, args, {
+  const proc = spawn(spawnPlan.command, spawnPlan.args, {
     cwd: options.cwd || process.cwd(),
     env: { ...process.env },
     stdio: ["pipe", "pipe", "pipe"],
-    detached: true,
+    detached: spawnPlan.detached,
+    windowsVerbatimArguments: spawnPlan.windowsVerbatimArguments === true,
   });
 
   // Close stdin immediately (non-interactive)

@@ -168,7 +168,11 @@ async function main(): Promise<void> {
   if (!cliPath) {
     console.error("");
     console.error("  ❌ Claude Code CLI not found.");
-    console.error("     Install: curl -fsSL https://claude.ai/install.sh | bash");
+    if (process.platform === "win32") {
+      console.error("     Install: npm install -g @anthropic-ai/claude-code");
+    } else {
+      console.error("     Install: curl -fsSL https://claude.ai/install.sh | bash");
+    }
     console.error("");
     process.exit(1);
   }
