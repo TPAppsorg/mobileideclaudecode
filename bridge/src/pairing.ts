@@ -18,19 +18,33 @@ export function startPairingServer(
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://127.0.0.1:${port}`);
 
+    // CORS headers for cross-origin fetch from the connect page
+    const corsHeaders: Record<string, string> = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    };
+
+    // Handle preflight
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, corsHeaders);
+      res.end();
+      return;
+    }
+
     if (url.pathname === "/callback") {
       const token = url.searchParams.get("token");
       const pairId = url.searchParams.get("pair");
 
       if (!token) {
-        res.writeHead(400, { "Content-Type": "text/html" });
+        res.writeHead(400, { ...corsHeaders, "Content-Type": "text/html" });
         res.end("<html><body><h1>❌ Missing token</h1><p>Please use the link from the app.</p></body></html>");
         return;
       }
 
       try {
         await onPairCallback({ pairId: pairId || "", token });
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.writeHead(200, { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" });
         res.end(`<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -42,7 +56,7 @@ export function startPairingServer(
 <div class="sub">Claude Code Mobile is now connected. You can close this tab.</div>
 </body></html>`);
       } catch (err) {
-        res.writeHead(500, { "Content-Type": "text/html; charset=utf-8" });
+        res.writeHead(500, { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" });
         res.end(`<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -59,12 +73,12 @@ export function startPairingServer(
 
     // Health check
     if (url.pathname === "/health") {
-      res.writeHead(200, { "Content-Type": "application/json" });
+      res.writeHead(200, { ...corsHeaders, "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: "ok", bridge: "claudecodemobile" }));
       return;
     }
 
-    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.writeHead(404, { ...corsHeaders, "Content-Type": "text/plain" });
     res.end("Not Found");
   });
 

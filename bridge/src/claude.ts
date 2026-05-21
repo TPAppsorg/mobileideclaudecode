@@ -417,6 +417,11 @@ export function runClaude(
 
         case "assistant":
         case "message": {
+          // The final "assistant"/"message" event contains the complete text
+          // that was already streamed via content_block_delta events.
+          // Only use it as a fallback if streaming produced nothing.
+          if (visibleOutput) break;
+
           const msgObj = (typeof ev.message === "object" && ev.message) ? (ev.message as Record<string, any>) : ev;
           if (msgObj.role === "assistant") {
             const content = msgObj.content;
