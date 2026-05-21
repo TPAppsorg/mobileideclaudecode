@@ -196,14 +196,9 @@ async function main(): Promise<void> {
     const previousToken = lastClaimedToken;
     lastClaimedToken = token;
 
-    try {
-      // Allow re-pairing: disconnect old pair and accept the new one
-      if (bridge.pairId) {
-        console.log("  🔄 New device connecting — switching pair...");
-        await bridge.disconnect();
-        isFirstMessage = true;
-      }
+    const previousPairId = bridge.pairId;
 
+    try {
       let resolvedPairId = pairId;
 
       if (!resolvedPairId) {
@@ -219,8 +214,16 @@ async function main(): Promise<void> {
         throw new Error("Could not resolve pair_id from callback");
       }
 
+      // Claim the pair first to ensure token validity before disconnecting active session
       const ok = await bridge.claimPair(resolvedPairId, token);
       if (!ok) throw new Error("Failed to claim pair");
+
+      // Disconnect old pair only if we successfully claim a different one
+      if (previousPairId && previousPairId !== resolvedPairId) {
+        console.log("  🔄 New device connecting — switching pair...");
+        await bridge.disconnect();
+        isFirstMessage = true;
+      }
 
       await bridge.upsertBridgeSession();
       await bridge.joinPairChannel();

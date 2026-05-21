@@ -1,6 +1,6 @@
 {
   "name": "@uladluch/claudecodemobile-bridge",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Bridge between Claude Code CLI and Claude Code Mobile iOS app via Supabase",
   "type": "module",
   "main": "dist/index.js",

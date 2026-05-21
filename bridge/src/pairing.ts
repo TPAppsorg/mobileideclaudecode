@@ -53,7 +53,9 @@ export function startPairingServer(
 <div class="sub">Claude Code Mobile is now connected. You can close this tab.</div>
 </body></html>`);
       } catch (err) {
-        res.writeHead(500, { "Content-Type": "text/html; charset=utf-8" });
+        const errMsg = (err as Error)?.message || "Unknown error";
+        const status = (errMsg.includes("claim") || errMsg.includes("resolve")) ? 400 : 500;
+        res.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
         res.end(`<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
