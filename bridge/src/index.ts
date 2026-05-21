@@ -188,10 +188,13 @@ async function main(): Promise<void> {
 
   // 3. Start pairing server
   const pairingServer = startPairingServer(config.port, async ({ pairId, token }) => {
-    // Deduplicate: if this exact token was already claimed, skip re-pairing
-    if (lastClaimedToken && lastClaimedToken === token && bridge.pairId) {
-      return; // already connected with this token
+    // Deduplicate: if this token is already claimed or being claimed, skip
+    if (lastClaimedToken === token) {
+      return; // already connected / in progress with this token
     }
+
+    // Lock immediately (sync) to prevent concurrent claims
+    lastClaimedToken = token;
 
     // Allow re-pairing: disconnect old pair and accept the new one
     if (bridge.pairId) {
@@ -212,13 +215,15 @@ async function main(): Promise<void> {
     }
 
     if (!resolvedPairId) {
+      lastClaimedToken = null; // unlock on failure
       throw new Error("Could not resolve pair_id from callback");
     }
 
     const ok = await bridge.claimPair(resolvedPairId, token);
-    if (!ok) throw new Error("Failed to claim pair");
-
-    lastClaimedToken = token;
+    if (!ok) {
+      lastClaimedToken = null; // unlock on failure
+      throw new Error("Failed to claim pair");
+    }
 
     await bridge.upsertBridgeSession();
     await bridge.joinPairChannel();
