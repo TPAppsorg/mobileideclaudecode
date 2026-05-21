@@ -150,6 +150,16 @@ export class SupabaseBridge {
 
   // ── Channel ─────────────────────────────────────────────────────────
 
+  async trackPresence(): Promise<void> {
+    if (!this.channel) return;
+    await this.channel.track({
+      role: "bridge",
+      project_name: path.basename(this.config.projectPath || process.cwd()),
+      project_path: this.config.projectPath || process.cwd(),
+      client_type: this.config.clientType,
+    });
+  }
+
   async joinPairChannel(): Promise<void> {
     if (!this._pairId) return;
 
@@ -164,10 +174,15 @@ export class SupabaseBridge {
 
       // Track presence
       .on("presence", { event: "join" }, ({ newPresences }) => {
+        let hasIos = false;
         for (const p of newPresences) {
           if (p.role === "ios") {
             console.log("  📱 iOS device connected");
+            hasIos = true;
           }
+        }
+        if (hasIos) {
+          this.trackPresence().catch(() => {});
         }
       })
       .on("presence", { event: "leave" }, ({ leftPresences }) => {
@@ -207,12 +222,7 @@ export class SupabaseBridge {
     const status = await this.channel.subscribe(async (status: string) => {
       if (status === "SUBSCRIBED") {
         // Track bridge presence
-        await this.channel!.track({
-          role: "bridge",
-          project_name: path.basename(this.config.projectPath || process.cwd()),
-          project_path: this.config.projectPath || process.cwd(),
-          client_type: this.config.clientType,
-        });
+        await this.trackPresence();
       }
     });
   }

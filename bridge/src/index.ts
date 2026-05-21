@@ -188,52 +188,54 @@ async function main(): Promise<void> {
 
   // 3. Start pairing server
   const pairingServer = startPairingServer(config.port, async ({ pairId, token }) => {
-    // Deduplicate: if this token is already claimed or being claimed, skip
-    if (lastClaimedToken === token) {
-      return; // already connected / in progress with this token
+    // Deduplicate: if this exact token was already claimed/connecting, skip re-pairing
+    if (lastClaimedToken && lastClaimedToken === token) {
+      return;
     }
 
-    // Lock immediately (sync) to prevent concurrent claims
+    const previousToken = lastClaimedToken;
     lastClaimedToken = token;
 
-    // Allow re-pairing: disconnect old pair and accept the new one
-    if (bridge.pairId) {
-      console.log("  🔄 New device connecting — switching pair...");
-      await bridge.disconnect();
-      isFirstMessage = true;
+    try {
+      // Allow re-pairing: disconnect old pair and accept the new one
+      if (bridge.pairId) {
+        console.log("  🔄 New device connecting — switching pair...");
+        await bridge.disconnect();
+        isFirstMessage = true;
+      }
+
+      let resolvedPairId = pairId;
+
+      if (!resolvedPairId) {
+        const { data } = await bridge.client
+          .from("device_pairs")
+          .select("id")
+          .eq("pairing_token", token)
+          .single();
+        if (data) resolvedPairId = data.id;
+      }
+
+      if (!resolvedPairId) {
+        throw new Error("Could not resolve pair_id from callback");
+      }
+
+      const ok = await bridge.claimPair(resolvedPairId, token);
+      if (!ok) throw new Error("Failed to claim pair");
+
+      await bridge.upsertBridgeSession();
+      await bridge.joinPairChannel();
+
+      console.log("");
+      console.log("  ✅ Connected!");
+      console.log(`  📂 Workspace  ${workspaceName}`);
+      console.log("");
+      console.log("  Press Ctrl+C to stop the bridge.");
+      console.log("");
+    } catch (err) {
+      // Revert token if pairing failed, so it can be retried
+      lastClaimedToken = previousToken;
+      throw err;
     }
-
-    let resolvedPairId = pairId;
-
-    if (!resolvedPairId) {
-      const { data } = await bridge.client
-        .from("device_pairs")
-        .select("id")
-        .eq("pairing_token", token)
-        .single();
-      if (data) resolvedPairId = data.id;
-    }
-
-    if (!resolvedPairId) {
-      lastClaimedToken = null; // unlock on failure
-      throw new Error("Could not resolve pair_id from callback");
-    }
-
-    const ok = await bridge.claimPair(resolvedPairId, token);
-    if (!ok) {
-      lastClaimedToken = null; // unlock on failure
-      throw new Error("Failed to claim pair");
-    }
-
-    await bridge.upsertBridgeSession();
-    await bridge.joinPairChannel();
-
-    console.log("");
-    console.log("  ✅ Connected!");
-    console.log(`  📂 Workspace  ${workspaceName}`);
-    console.log("");
-    console.log("  Press Ctrl+C to stop the bridge.");
-    console.log("");
   });
 
   // 4. If already paired (from saved config), reconnect
