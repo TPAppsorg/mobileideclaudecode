@@ -10,6 +10,7 @@ SECURITY DEFINER
 SET search_path = public
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE
   v_pair public.device_pairs%rowtype;
   v_device_id TEXT;
