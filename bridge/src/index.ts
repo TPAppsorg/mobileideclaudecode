@@ -30,6 +30,7 @@ let currentMessageId: string | null = null;
 let isFirstMessage = true;
 const messageQueue: MessageRow[] = [];
 let isProcessing = false;
+let lastClaimedToken: string | null = null;
 
 // ─── Message Processing ─────────────────────────────────────────────
 
@@ -187,6 +188,11 @@ async function main(): Promise<void> {
 
   // 3. Start pairing server
   const pairingServer = startPairingServer(config.port, async ({ pairId, token }) => {
+    // Deduplicate: if this exact token was already claimed, skip re-pairing
+    if (lastClaimedToken && lastClaimedToken === token && bridge.pairId) {
+      return; // already connected with this token
+    }
+
     // Allow re-pairing: disconnect old pair and accept the new one
     if (bridge.pairId) {
       console.log("  🔄 New device connecting — switching pair...");
@@ -211,6 +217,8 @@ async function main(): Promise<void> {
 
     const ok = await bridge.claimPair(resolvedPairId, token);
     if (!ok) throw new Error("Failed to claim pair");
+
+    lastClaimedToken = token;
 
     await bridge.upsertBridgeSession();
     await bridge.joinPairChannel();
